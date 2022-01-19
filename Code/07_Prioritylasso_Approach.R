@@ -59,7 +59,9 @@ eval_pl_approach <- function(path = './Data/Raw/BLCA.Rda', frac_train = 0.75, sp
                                    test_pattern = test_pattern)             # Pattern for the test-set
   
   # 1-2 Get the observed blocks of test- & train-set
-  # --1 Get the fully observed blocks in 'test' and store their names in 'test_blocks' 
+  # --1 Get the fully observed blocks in 'test' and store their names in 'test_blocks'
+  #     (because there is only one missingness pattern in the test data, a block
+  #     is either completely observed or not at all)
   test_blocks <- list()
   for (curr_block in train_test_bwm$Test$block_names) {
     
@@ -95,10 +97,15 @@ eval_pl_approach <- function(path = './Data/Raw/BLCA.Rda', frac_train = 0.75, sp
     # --4 If the current_test_block is (partly) observed in the train, add it to 'train_blocks'
     if (curr_train_block_partly_observed) {
       train_blocks[[curr_test_block]] <- train_test_bwm$Train$data[, curr_train_block_cols]
+    } else {
+      # --5 If the block is observed in the test data, but not in the train data,
+      # remove it also from the test data because then there's no advantage of
+      # keeping it (because it can't be used by the pl model anyways)
+      test_blocks[[curr_test_block]] <- NULL
     }
   }
   # --5 add the response variable
-  train_blocks[["ytarget"]] <- train_test_bwm$Train$data$ytarget
+  # train_blocks[["ytarget"]] <- train_test_bwm$Train$data$ytarget
   
   # 1-3 In case 'train_blocks' is an empty list, return the result-DF, but w/o metrics!
   if (length(names(train_blocks)) <= 0) {
@@ -122,6 +129,15 @@ eval_pl_approach <- function(path = './Data/Raw/BLCA.Rda', frac_train = 0.75, sp
                       "F1"                 = '---', 
                       "BrierScore"         = '---'))
   }
+  
+  # 1-4 make a matrix out of the list
+  train_matrix <- as.matrix(do.call("cbind", train_blocks))
+  
+  # 1-5 bring the test data blocks in the same order as the train data and make
+  #     a matrix
+  test_matrix <- as.matrix(do.call("cbind", test_blocks[names(train_blocks)]))
+  rm(train_blocks)
+  rm(test_blocks)
   
   # [2] Train & evaluate prioritylasso on the data
   # 2-1 Train a PL model on the 'train' data
