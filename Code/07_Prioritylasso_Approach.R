@@ -104,8 +104,8 @@ eval_pl_approach <- function(path = './Data/Raw/BLCA.Rda', frac_train = 0.75, sp
       test_blocks[[curr_test_block]] <- NULL
     }
   }
-  # --5 add the response variable
-  # train_blocks[["ytarget"]] <- train_test_bwm$Train$data$ytarget
+  # --5 extract the response variable
+ ytarget <- train_test_bwm$Train$data$ytarget
   
   # 1-3 In case 'train_blocks' is an empty list, return the result-DF, but w/o metrics!
   if (length(names(train_blocks)) <= 0) {
@@ -136,17 +136,39 @@ eval_pl_approach <- function(path = './Data/Raw/BLCA.Rda', frac_train = 0.75, sp
   # 1-5 bring the test data blocks in the same order as the train data and make
   #     a matrix
   test_matrix <- as.matrix(do.call("cbind", test_blocks[names(train_blocks)]))
+  
+  # 1-6 create the block indices
+  block_indices_pre <- unlist(lapply(train_blocks, ncol))
+  block_indices <- list()
+  for (i in seq_len(length(block_indices_pre))) {
+    if (i == 1) {
+      block_indices[[i]] <- seq(from = 1, to = block_indices_pre[i], by = 1)
+    } else {
+      block_indices[[i]] <- seq(from = max(block_indices[[i - 1]]) + 1,
+                                to = max(block_indices[[i - 1]]) + block_indices_pre[i],
+                                by = 1)
+    }
+  }
   rm(train_blocks)
   rm(test_blocks)
   
   # [2] Train & evaluate prioritylasso on the data
   # 2-1 Train a PL model on the 'train' data
-  # TODO: bring blocks in train & test in correct order (also depending on cvm
-  # result)
   # maybe return block order in cvm function not only as string but in number
   # format
   # make function to generate all block permutations for cvm function
-  pl_cvm_results <- 
+  pl_cvm_results <- cvm_prioritylasso(
+    X = train_matrix,
+    Y = ytarget,
+    family = "binomial",
+    type.measure = "auc",
+    nfolds = 5,
+    mcontrol = missing.control(
+      handle.missingdata = "impute.offset",
+      impute.offset.cases = "available"
+    ),
+    blocks.list = list(block_indices)
+  )
   
   # 2-2 Get predictions (prob. for class 1) for the test-set from each RF
   preds_test_set <- list()
