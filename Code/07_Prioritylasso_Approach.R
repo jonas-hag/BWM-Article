@@ -7,6 +7,7 @@ library(checkmate)
 library(prioritylasso)
 library(caret)
 library(pROC)
+library(combinat)
 
 # 0-3 Define variables
 
@@ -156,7 +157,7 @@ eval_pl_approach <- function(path = './Data/Raw/BLCA.Rda', frac_train = 0.75, sp
   # 2-1 Train a PL model on the 'train' data
   # maybe return block order in cvm function not only as string but in number
   # format
-  # make function to generate all block permutations for cvm function
+  block_permutations <- permn(block_indices)
   pl_cvm_results <- cvm_prioritylasso(
     X = train_matrix,
     Y = ytarget,
@@ -167,7 +168,8 @@ eval_pl_approach <- function(path = './Data/Raw/BLCA.Rda', frac_train = 0.75, sp
       handle.missingdata = "impute.offset",
       impute.offset.cases = "available"
     ),
-    blocks.list = list(block_indices)
+    blocks.list = block_permutations,
+    return.x = FALSE
   )
   
   # 2-2 Get predictions (prob. for class 1) for the test-set from each RF
