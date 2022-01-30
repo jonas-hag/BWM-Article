@@ -107,6 +107,10 @@ eval_pl_approach <- function(path = './Data/Raw/BLCA.Rda', frac_train = 0.75, sp
   }
   # --5 extract the response variable
  ytarget <- train_test_bwm$Train$data$ytarget
+ ytarget_test <- train_test_bwm$Test$data$ytarget
+ 
+ # --6 store names
+ names_train_blocks <- names(train_blocks)
   
   # 1-3 In case 'train_blocks' is an empty list, return the result-DF, but w/o metrics!
   if (length(names(train_blocks)) <= 0) {
@@ -153,6 +157,11 @@ eval_pl_approach <- function(path = './Data/Raw/BLCA.Rda', frac_train = 0.75, sp
   rm(train_blocks)
   rm(test_blocks)
   
+  # 1-7 store block information for later
+  train_block_names <- train_test_bwm$Train$block_names
+  test_block_names <- train_test_bwm$Test$block_names
+  rm(train_test_bwm)
+  
   # [2] Train & evaluate prioritylasso on the data
   # 2-1 Train a PL model on the 'train' data
   # maybe return block order in cvm function not only as string but in number
@@ -162,7 +171,8 @@ eval_pl_approach <- function(path = './Data/Raw/BLCA.Rda', frac_train = 0.75, sp
     X = train_matrix,
     Y = ytarget,
     family = "binomial",
-    type.measure = "auc",
+    type.measure = "deviance", # sometimes cvm.glmnet falls back to deviance,
+    # therefore I use it as the default to make runs comparable
     nfolds = 5,
     mcontrol = missing.control(
       handle.missingdata = "impute.offset",
@@ -172,52 +182,44 @@ eval_pl_approach <- function(path = './Data/Raw/BLCA.Rda', frac_train = 0.75, sp
     return.x = FALSE
   )
   
-  # 2-2 Get predictions (prob. for class 1) for the test-set from each RF
-  preds_test_set <- list()
-  for (curr_block in names(train_blocks)) {
-    
-    # --1 Fit an RF on the curr_block of the test-set
-    curr_pred <- predict(fitted_RFs[[curr_block]]$RF, 
-                         test_blocks[[curr_block]])
-    
-    # --2 Save the predicted probs for class 1 to 'preds_test_set'
-    preds_test_set[[curr_block]] <- curr_pred$predicted[,2]
+  # 2-2 Get the best model & order of blocks
+  best_model <- pl_cvm_results$best.model
+  
+  # 2-3 bring the test data into the correct block order (the same order as
+  # the best model from the training data, otherwise the prediction is not
+  # correct) and make the prediction
+  # also check for missingness in the test data and set option accordingly
+  block_order_best_model <- best_model$blocks
+  if (sum(is.na(test_matrix)) > 1) {
+    missing_type <- "impute.block"
+  } else {
+    missing_type <- "none"
   }
+  predictions <- predict(best_model,
+                         newdata = test_matrix[, unlist(block_order_best_model)],
+                         type = "response",
+                         handle.missingtestdata = missing_type,
+                         include.allintercepts = TRUE)
   
-  # 2-3 Get the weighted average of the predicitons on the test-set
-  # --1 Collect oob-AUCs of the blockwise fitted RFs
-  oob_weights <- sapply(names(fitted_RFs), function(x) fitted_RFs[[x]]$AUC)
+  # coerce them to a vector
+  predictions <- as.vector(predictions)
   
-  # --2 Get the weighted sum of the predicted probabilities 
-  weighted_predicitons <- c()
-  for (curr_block in names(train_blocks)) {
-    
-    if (length(weighted_predicitons) == 0) {
-      weighted_predicitons <- (preds_test_set[[curr_block]] * oob_weights[which(names(fitted_RFs) == curr_block)])
-    } else {
-      weighted_predicitons <- weighted_predicitons + (preds_test_set[[curr_block]] * oob_weights[which(names(fitted_RFs) == curr_block)]) 
-    }
-  }
-  
-  # --3 Scale them down by dividing with the sum of 'oob_weights'
-  weighted_predicitons <- weighted_predicitons / sum(oob_weights)
-  
-  # --4 Get the predicted class
-  classes_predicted <- factor(as.numeric(weighted_predicitons >= 0.5), levels = c(0, 1))
+  # 2-4 Get the predicted class
+  classes_predicted <- factor(as.numeric(predictions >= 0.5), levels = c(0, 1))
   
   # [3] Calculate the metrics based on the true & predicted labels
   # 3-1  Confusion Matrix & all corresponding metrics (Acc, F1, Precision, ....)
   metrics_1 <- caret::confusionMatrix(classes_predicted, 
-                                      factor(train_test_bwm$Test$data$ytarget, 
+                                      factor(ytarget_test, 
                                              levels = c(0, 1)),
                                       positive = "1")
   
   # 3-2 Calculate the AUC
-  AUC <- pROC::auc(factor(train_test_bwm$Test$data$ytarget, levels = c(0, 1)), 
-                   weighted_predicitons, quiet = T)
+  AUC <- pROC::auc(factor(ytarget_test, levels = c(0, 1)), 
+                   predictions, quiet = T)
   
   # 3-3 Calculate the Brier-Score
-  brier <- mean((weighted_predicitons - train_test_bwm$Test$data$ytarget)  ^ 2)
+  brier <- mean((predictions - ytarget_test)  ^ 2)
   
   # [4] Return the results as DF
   return(data.frame("path"               = path, 
@@ -225,12 +227,12 @@ eval_pl_approach <- function(path = './Data/Raw/BLCA.Rda', frac_train = 0.75, sp
                     "split_seed"         = split_seed, 
                     "block_seed_train"   = block_seed_train,
                     "block_seed_test"    = block_seed_test, 
-                    "block_order_train_for_BWM" = paste(train_test_bwm$Train$block_names, collapse = ' - '),
-                    "block_order_test_for_BWM"  = paste(train_test_bwm$Test$block_names, collapse = ' - '),
+                    "block_order_train_for_BWM" = paste(train_block_names, collapse = ' - '),
+                    "block_order_test_for_BWM"  = paste(test_block_names, collapse = ' - '),
                     "train_pattern"      = train_pattern, 
                     "train_pattern_seed" = train_pattern_seed, 
                     "test_pattern"       = test_pattern, 
-                    "common_blocks"      = paste(names(train_blocks), collapse = ' - '),
+                    "common_blocks"      = paste(names_train_blocks, collapse = ' - '),
                     "AUC"                = AUC,
                     "Accuracy"           = metrics_1$overall['Accuracy'], 
                     "Sensitivity"        = metrics_1$byClass['Sensitivity'], 
