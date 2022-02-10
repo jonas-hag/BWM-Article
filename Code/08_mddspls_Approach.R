@@ -60,9 +60,8 @@ eval_mddspls_approach <- function(path = './Data/Raw/BLCA.Rda', frac_train = 0.7
                                    test_pattern = test_pattern)             # Pattern for the test-set
   
   # 1-2 Get the observed blocks of test- & train-set
-  # --1 Get the fully observed blocks in 'test' and store their names in 'test_blocks'
-  #     (because there is only one missingness pattern in the test data, a block
-  #     is either completely observed or not at all)
+  # --1 Get all test blocks (whether observed or not) in the correct order
+  #     into a list
   test_blocks <- list()
   for (curr_block in train_test_bwm$Test$block_names) {
     
@@ -72,17 +71,12 @@ eval_mddspls_approach <- function(path = './Data/Raw/BLCA.Rda', frac_train = 0.7
     # --2 Get the corresponding columns to 'curr_block'
     curr_block_cols <- which(train_test_bwm$Test$block_index == curr_block_idx)
     
-    # --3 Check whether the whole block is observed (no NA's)
-    curr_block_observed <- all(!is.na(train_test_bwm$Test$data[,curr_block_cols] <= 0))
-    
-    # --4 If the current block is fully observed, add it to 'test_blocks'
-    if (curr_block_observed) {
-      test_blocks[[curr_block]] <- train_test_bwm$Test$data[,curr_block_cols]
-    }
+    # --3 add it to test_blocks
+    test_blocks[[curr_block]] <- train_test_bwm$Test$data[,curr_block_cols]
   }
   
-  # --2 For each block in 'test_blocks', check whether 'train' has observations in the corresponding 
-  #     block. If this is the case, add the block to 'train_blocks'
+  # --2 Get all train blocks (whether observed or not) in the correct order
+  #     into a list
   train_blocks <- list()
   for (curr_test_block in names(test_blocks)) {
     
@@ -92,13 +86,8 @@ eval_mddspls_approach <- function(path = './Data/Raw/BLCA.Rda', frac_train = 0.7
     # --2 Extract the corresponding columns from train for current train-block 
     curr_train_block_cols <- which(train_test_bwm$Train$block_index == curr_train_block_idx)
     
-    # --3 Check whether the whole block has (at least some) observed values (no NA's), then we can use it!
-    curr_train_block_partly_observed <- any(!is.na(train_test_bwm$Train$data[,curr_train_block_cols] <= 0))
-    
-    # --4 If the current_test_block is (partly) observed in the train, add it to 'train_blocks'
-    if (curr_train_block_partly_observed) {
-      train_blocks[[curr_test_block]] <- train_test_bwm$Train$data[, curr_train_block_cols]
-    }
+    # --3 add it to train_blocks
+    train_blocks[[curr_test_block]] <- train_test_bwm$Train$data[, curr_train_block_cols]
   }
   # --5 extract the response variable
  ytarget <- train_test_bwm$Train$data$ytarget
