@@ -4,10 +4,15 @@
 
 # 0-2 Load packages
 library(checkmate)
-# library(ddsPLS)
+library(ddsPLS)
 library(caret)
 library(pROC)
 library(combinat)
+
+# 0-2b set options
+# it is important to return to standard before R 4.0.0 because otherwise
+# ddsPLS won't work due to a weird bug
+options(stringsAsFactors = TRUE)
 
 # 0-3 Define variables
 
@@ -17,8 +22,8 @@ source("./Code/01_Create_BWM_Pattern.R")
 
 # 0-4-2 Function to evaluate the mdd-sPLS-Apprach
 eval_mddspls_approach <- function(path = './Data/Raw/BLCA.Rda', frac_train = 0.75, split_seed = 1312,
-                             block_seed_train = 1234, block_seed_test = 1312, train_pattern = 2, 
-                             train_pattern_seed = 12, test_pattern = 2) {
+                                  block_seed_train = 1234, block_seed_test = 1312, train_pattern = 2, 
+                                  train_pattern_seed = 12, test_pattern = 2) {
   "
    Evaluate the PL-Approach on the data 'path' points to. 
    TODO: add description
@@ -90,11 +95,11 @@ eval_mddspls_approach <- function(path = './Data/Raw/BLCA.Rda', frac_train = 0.7
     train_blocks[[curr_test_block]] <- train_test_bwm$Train$data[, curr_train_block_cols]
   }
   # --5 extract the response variable
- ytarget <- train_test_bwm$Train$data$ytarget
- ytarget_test <- train_test_bwm$Test$data$ytarget
- 
- # --6 store names
- names_train_blocks <- names(train_blocks)
+  ytarget <- train_test_bwm$Train$data$ytarget
+  ytarget_test <- train_test_bwm$Test$data$ytarget
+  
+  # --6 store names
+  names_train_blocks <- names(train_blocks)
   
   # 1-3 In case 'train_blocks' is an empty list, return the result-DF, but w/o metrics!
   if (length(names(train_blocks)) <= 0) {
@@ -147,6 +152,9 @@ eval_mddspls_approach <- function(path = './Data/Raw/BLCA.Rda', frac_train = 0.7
   # 2-3 make predictions
   predictions <- predict(object = best_model,
                          newdata = test_blocks)$probY
+  # the predictions have probabilities for both classes, only use the probability
+  # for class 1
+  predictions <- as.vector(predictions[, 2])
   
   # 2-4 Get the predicted class
   classes_predicted <- factor(as.numeric(predictions >= 0.5), levels = c(0, 1))
@@ -239,14 +247,14 @@ for (curr_path in df_paths) {
         curr_train_pattern_seed <- seeds[4]
         
         # Run the evaluation with current settings
-        curr_res <- tryCatch(eval_pl_approach(path               = curr_path, 
-                                              frac_train         = 0.75, 
-                                              split_seed         = curr_split_seed,
-                                              block_seed_train   = curr_block_seed_train, 
-                                              block_seed_test    = curr_block_seed_test,
-                                              train_pattern      = curr_train_pattern,
-                                              train_pattern_seed = curr_train_pattern_seed, 
-                                              test_pattern       = curr_test_pattern),
+        curr_res <- tryCatch(eval_mddspls_approach(path               = curr_path, 
+                                                   frac_train         = 0.75, 
+                                                   split_seed         = curr_split_seed,
+                                                   block_seed_train   = curr_block_seed_train, 
+                                                   block_seed_test    = curr_block_seed_test,
+                                                   train_pattern      = curr_train_pattern,
+                                                   train_pattern_seed = curr_train_pattern_seed, 
+                                                   test_pattern       = curr_test_pattern),
                              error = function(c) {
                                data.frame("path"               = curr_path, 
                                           "frac_train"         = 0.75, 
@@ -276,7 +284,7 @@ for (curr_path in df_paths) {
         
         # Add the results of the setting to 'BW_res' & save it
         pl_res <- rbind(pl_res, curr_res)
-        write.csv(pl_res, './Docs/Evaluation_Results/PL_Approach/PL_Eval.csv')
+        write.csv(pl_res, './Docs/Evaluation_Results/MDDSPLS_Approach/MDDSPLS_Eval.csv')
       }
     }
   }
