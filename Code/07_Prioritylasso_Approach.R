@@ -248,7 +248,7 @@ eval_pl_approach <- function(path = '/BWM-Article/Data/Raw/BLCA.Rda', frac_train
 pl_res <- data.frame()
 
 # 1-2 Define a list with the paths to the availabe DFs
-df_paths <- paste0("./Data/Raw/", list.files("./Data/Raw/"))
+df_paths <- paste0("/BWM-Article/Data/Raw/", list.files("/BWM-Article/Data/Raw/"))
 
 # 1-3 Create a list of seeds for each single evaluation-setting
 set.seed(1234)
