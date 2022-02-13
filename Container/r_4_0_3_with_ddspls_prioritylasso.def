@@ -1,0 +1,9 @@
+Bootstrap: docker
+From: rocker/r-ver:4.0.3
+
+%post
+
+  # install R packages
+  R --slave -e 'install.packages(c("checkmate", "caret", "pROC", "combinat", "doParallel", "remotes", "e1071"))'
+  R --slave -e 'remotes::install_github("jonas-hag/prioritylasso@692b96339e780c50f8d41beb4477086308bec305")'
+  R --slave -e 'remotes::install_github("hlorenzo/ddsPLS@349f59fb89aa04f8d2cc92312dde49d50885876c")'
