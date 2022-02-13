@@ -13,10 +13,10 @@ library(combinat)
 
 # 0-4 Define functions
 # 0-4-1 Load functions from 'code/01_Create_BWM_Pattern"
-source("./Code/01_Create_BWM_Pattern.R")
+source("/BWM-Article/Code/01_Create_BWM_Pattern.R")
 
 # 0-4-2 Function to evaluate the PL-Apprach
-eval_pl_approach <- function(path = './Data/Raw/BLCA.Rda', frac_train = 0.75, split_seed = 1312,
+eval_pl_approach <- function(path = '/BWM-Article/Data/Raw/BLCA.Rda', frac_train = 0.75, split_seed = 1312,
                              block_seed_train = 1234, block_seed_test = 1312, train_pattern = 2, 
                              train_pattern_seed = 12, test_pattern = 2) {
   "
@@ -328,11 +328,11 @@ for (curr_path in df_paths) {
         # Add the, 'int_seed', 'curr_repetition' & 'SingleBlock' to 'curr_res'
         curr_res$int_seed   <- int_seed
         curr_res$repetition <- curr_repetition
-        curr_res$approach   <- 'Blockwise'
+        curr_res$approach   <- 'PL'
         
         # Add the results of the setting to 'BW_res' & save it
         pl_res <- rbind(pl_res, curr_res)
-        write.csv(pl_res, './Docs/Evaluation_Results/PL_Approach/PL_Eval.csv')
+        write.csv(pl_res, '/BWM-Article/Docs/Evaluation_Results/PL_Approach/PL_Eval.csv')
       }
     }
   }
