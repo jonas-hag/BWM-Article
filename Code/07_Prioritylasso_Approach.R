@@ -221,6 +221,12 @@ eval_pl_approach <- function(path = '/BWM-Article/Data/Raw/BLCA.Rda', frac_train
   # 3-3 Calculate the Brier-Score
   brier <- mean((predictions - ytarget_test)  ^ 2)
   
+  # remove memory consumption
+  rm(pl_cvm_results)
+  rm(best_model)
+  rm(train_matrix)
+  gc()
+  
   # [4] Return the results as DF
   return(data.frame("path"               = path, 
                     "frac_train"         = frac_train, 
@@ -333,6 +339,8 @@ for (curr_path in df_paths) {
         # Add the results of the setting to 'BW_res' & save it
         pl_res <- rbind(pl_res, curr_res)
         write.csv(pl_res, '/BWM-Article/Docs/Evaluation_Results/PL_Approach/PL_Eval.csv')
+        rm(curr_res)
+        gc()
       }
     }
   }
