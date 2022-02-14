@@ -167,6 +167,7 @@ eval_pl_approach <- function(path = '/BWM-Article/Data/Raw/BLCA.Rda', frac_train
   # maybe return block order in cvm function not only as string but in number
   # format
   block_permutations <- permn(block_indices)
+  set.seed(732)
   pl_cvm_results <- cvm_prioritylasso(
     X = train_matrix,
     Y = ytarget,
