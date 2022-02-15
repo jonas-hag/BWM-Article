@@ -1,3 +1,6 @@
+# This script expects the name of the data set as a command line argument
+args <- commandArgs(trailingOnly = TRUE)
+
 # [0] SetWD, load packages, define variables and functions                  ----
 # 0-1 Set WD
 # currently use default (as it is an Rproj)
@@ -226,6 +229,7 @@ eval_pl_approach <- function(path = '/BWM-Article/Data/Raw/BLCA.Rda', frac_train
   rm(pl_cvm_results)
   rm(best_model)
   rm(train_matrix)
+  rm(test_matrix)
   gc()
   
   # [4] Return the results as DF
@@ -257,9 +261,14 @@ pl_res <- data.frame()
 # 1-2 Define a list with the paths to the availabe DFs
 df_paths <- paste0("/BWM-Article/Data/Raw/", list.files("/BWM-Article/Data/Raw/"))
 
+# 1-2b determine the position of the data set within the list and use this to
+# calculate the count start
+# every data set has 100 runs, so multiply by 100
+df_index <- which(grepl(args[1], df_paths))
+count <- 1 + (df_index - 1) * 100
+
 # 1-3 Create a list of seeds for each single evaluation-setting
 set.seed(1234)
-count    <- 1
 allseeds <- base::sample(1000:10000000, 
                          size = length(df_paths) * length(c(1, 2, 3, 4, 5)) * 
                            length(c(1, 2, 3, 4)) * length(c(1, 2, 3, 4, 5)))
@@ -267,82 +276,82 @@ allseeds <- base::sample(1000:10000000,
 # 1-4 Evaluate a RF on all the possible combinations of block-wise missingness
 #     patterns in train- & test-set for all DFs in 'df_paths'. Each is evaluated
 #     5-times.
-for (curr_path in df_paths) {
-  for (curr_train_pattern in c(1, 2, 3, 4, 5)) {
-    for (curr_test_pattern in c(1, 2, 3, 4)) {
-      for (curr_repetition in c(1, 2, 3, 4, 5)) {
-        
-        # Print Info to current evaluation!
-        cat('-----------------------------------------------\n',
-            "Current Path:          >", curr_path, '\n',
-            "Current Train Pattern: >", curr_train_pattern, '\n',
-            "Current Test Patter:   >", curr_test_pattern, '\n',
-            "Current Repetition:    >", curr_repetition, '\n')
-        
-        
-        # Get initial seed for the current combination evaluation-settings
-        int_seed <- allseeds[count]
-        count    <- count + 1
-        
-        # Set seed & draw points from uniform distribution
-        set.seed(int_seed)    
-        seeds <- round(runif(4, 0, 100000))
-        
-        # Use these 'seeds' to set the four necessary seeds for the evaluation:
-        #     1. Seed to split data into test & train
-        curr_split_seed <- seeds[1]
-        
-        #     2. Seed to shuffle the block order in 'train'
-        curr_block_seed_train <- seeds[2]
-        
-        #     3. Seed to shuffle the block order in 'test'
-        curr_block_seed_test <- seeds[3]
-        
-        #     4. Seed for the train-pattern (assignment of obs. in train to folds)
-        curr_train_pattern_seed <- seeds[4]
-        
-        # Run the evaluation with current settings
-        curr_res <- tryCatch(eval_pl_approach(path               = curr_path, 
-                                              frac_train         = 0.75, 
-                                              split_seed         = curr_split_seed,
-                                              block_seed_train   = curr_block_seed_train, 
-                                              block_seed_test    = curr_block_seed_test,
-                                              train_pattern      = curr_train_pattern,
-                                              train_pattern_seed = curr_train_pattern_seed, 
-                                              test_pattern       = curr_test_pattern),
-                             error = function(c) {
-                               data.frame("path"               = curr_path, 
-                                          "frac_train"         = 0.75, 
-                                          "split_seed"         = curr_split_seed, 
-                                          "block_seed_train"   = curr_block_seed_test,
-                                          "block_seed_test"    = curr_block_seed_test, 
-                                          "block_order_train_for_BWM" = '---',
-                                          "block_order_test_for_BWM"  = '---',
-                                          "train_pattern"      = curr_train_pattern, 
-                                          "train_pattern_seed" = curr_train_pattern_seed, 
-                                          "test_pattern"       = curr_test_pattern,
-                                          "common_blocks"      = "---",
-                                          "AUC"                = '---',
-                                          "Accuracy"           = '---', 
-                                          "Sensitivity"        = '---', 
-                                          "Specificity"        = '---', 
-                                          "Precision"          = '---', 
-                                          "Recall"             = '---', 
-                                          "F1"                 = '---', 
-                                          "BrierScore"         = '---')
-                             }
-        ) 
-        # Add the, 'int_seed', 'curr_repetition' & 'SingleBlock' to 'curr_res'
-        curr_res$int_seed   <- int_seed
-        curr_res$repetition <- curr_repetition
-        curr_res$approach   <- 'PL'
-        
-        # Add the results of the setting to 'BW_res' & save it
-        pl_res <- rbind(pl_res, curr_res)
-        write.csv(pl_res, '/BWM-Article/Docs/Evaluation_Results/PL_Approach/PL_Eval.csv')
-        rm(curr_res)
-        gc()
-      }
+# the curr_path is defined by the command line argument
+curr_path <- df_paths[df_index]
+for (curr_train_pattern in c(1, 2, 3, 4, 5)) {
+  for (curr_test_pattern in c(1, 2, 3, 4)) {
+    for (curr_repetition in c(1, 2, 3, 4, 5)) {
+      
+      # Print Info to current evaluation!
+      cat('-----------------------------------------------\n',
+          "Current Path:          >", curr_path, '\n',
+          "Current Train Pattern: >", curr_train_pattern, '\n',
+          "Current Test Patter:   >", curr_test_pattern, '\n',
+          "Current Repetition:    >", curr_repetition, '\n')
+      
+      
+      # Get initial seed for the current combination evaluation-settings
+      int_seed <- allseeds[count]
+      count    <- count + 1
+      
+      # Set seed & draw points from uniform distribution
+      set.seed(int_seed)    
+      seeds <- round(runif(4, 0, 100000))
+      
+      # Use these 'seeds' to set the four necessary seeds for the evaluation:
+      #     1. Seed to split data into test & train
+      curr_split_seed <- seeds[1]
+      
+      #     2. Seed to shuffle the block order in 'train'
+      curr_block_seed_train <- seeds[2]
+      
+      #     3. Seed to shuffle the block order in 'test'
+      curr_block_seed_test <- seeds[3]
+      
+      #     4. Seed for the train-pattern (assignment of obs. in train to folds)
+      curr_train_pattern_seed <- seeds[4]
+      
+      # Run the evaluation with current settings
+      curr_res <- tryCatch(eval_pl_approach(path               = curr_path, 
+                                            frac_train         = 0.75, 
+                                            split_seed         = curr_split_seed,
+                                            block_seed_train   = curr_block_seed_train, 
+                                            block_seed_test    = curr_block_seed_test,
+                                            train_pattern      = curr_train_pattern,
+                                            train_pattern_seed = curr_train_pattern_seed, 
+                                            test_pattern       = curr_test_pattern),
+                           error = function(c) {
+                             data.frame("path"               = curr_path, 
+                                        "frac_train"         = 0.75, 
+                                        "split_seed"         = curr_split_seed, 
+                                        "block_seed_train"   = curr_block_seed_test,
+                                        "block_seed_test"    = curr_block_seed_test, 
+                                        "block_order_train_for_BWM" = '---',
+                                        "block_order_test_for_BWM"  = '---',
+                                        "train_pattern"      = curr_train_pattern, 
+                                        "train_pattern_seed" = curr_train_pattern_seed, 
+                                        "test_pattern"       = curr_test_pattern,
+                                        "common_blocks"      = "---",
+                                        "AUC"                = '---',
+                                        "Accuracy"           = '---', 
+                                        "Sensitivity"        = '---', 
+                                        "Specificity"        = '---', 
+                                        "Precision"          = '---', 
+                                        "Recall"             = '---', 
+                                        "F1"                 = '---', 
+                                        "BrierScore"         = '---')
+                           }
+      ) 
+      # Add the, 'int_seed', 'curr_repetition' & 'SingleBlock' to 'curr_res'
+      curr_res$int_seed   <- int_seed
+      curr_res$repetition <- curr_repetition
+      curr_res$approach   <- 'PL'
+      
+      # Add the results of the setting to 'BW_res' & save it
+      pl_res <- rbind(pl_res, curr_res)
+      write.csv(pl_res, paste0('/BWM-Article/Docs/Evaluation_Results/PL_Approach/PL_Eval_', args[1], '.csv'))
+      rm(curr_res)
+      gc()
     }
   }
 }
