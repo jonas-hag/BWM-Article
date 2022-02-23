@@ -283,14 +283,14 @@ for (curr_train_pattern in seq(from = args[2], to = 5, by = 1)) {
       curr_train_pattern_seed <- seeds[4]
       
       # Run the evaluation with current settings
-      curr_res <- tryCatch(eval_pl_approach(path               = curr_path, 
-                                            frac_train         = 0.75, 
-                                            split_seed         = curr_split_seed,
-                                            block_seed_train   = curr_block_seed_train, 
-                                            block_seed_test    = curr_block_seed_test,
-                                            train_pattern      = curr_train_pattern,
-                                            train_pattern_seed = curr_train_pattern_seed, 
-                                            test_pattern       = curr_test_pattern),
+      curr_res <- tryCatch(eval_mddspls_approach(path               = curr_path, 
+                                                 frac_train         = 0.75, 
+                                                 split_seed         = curr_split_seed,
+                                                 block_seed_train   = curr_block_seed_train, 
+                                                 block_seed_test    = curr_block_seed_test,
+                                                 train_pattern      = curr_train_pattern,
+                                                 train_pattern_seed = curr_train_pattern_seed, 
+                                                 test_pattern       = curr_test_pattern),
                            error = function(c) {
                              data.frame("path"               = curr_path, 
                                         "frac_train"         = 0.75, 
