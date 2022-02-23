@@ -23,11 +23,6 @@ library(ddsPLS)
 library(caret)
 library(pROC)
 
-# 0-2b set options
-# it is important to return to standard before R 4.0.0 because otherwise
-# ddsPLS won't work due to a weird bug
-options(stringsAsFactors = TRUE)
-
 # 0-3 Define variables
 
 # 0-4 Define functions
